@@ -1,0 +1,70 @@
+name: Deploy Arcade Club
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Fetch the public Arcade Club snapshot
+        env:
+          BASE_URL: https://site-813628cfaaf845f382874c8a414d5169.freebuff.page
+        run: |
+          set -euo pipefail
+          mkdir -p public/fonts public/games
+          paths=(
+            index.html
+            play.html
+            privacy.html
+            games-data.js
+            app.js
+            styles.css
+            fonts.css
+            favicon.svg
+            fonts/instrument-sans-latin.woff2
+            fonts/unbounded-latin.woff2
+            games/1v1-lol.html
+            games/breakout.html
+            games/fourline.html
+            games/paddle-duel.html
+            games/pair-up.html
+            games/pipe-panic.html
+            games/snake.html
+          )
+          for path in "${paths[@]}"; do
+            mkdir -p "public/$(dirname "$path")"
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+              "$BASE_URL/$path" --output "public/$path"
+          done
+          touch public/.nojekyll
+          echo "Publishing $(find public -type f | wc -l) files."
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
